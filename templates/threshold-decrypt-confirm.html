@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h3><i class="fas fa-unlock"></i> Ready to Decrypt</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <h4>File Information</h4>
+                    <table class="table table-striped">
+                        <tr>
+                            <th width="30%">Filename:</th>
+                            <td>{{ file.filename }}</td>
+                        </tr>
+                        <tr>
+                            <th>Description:</th>
+                            <td>{{ file.description or "No description provided" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Uploaded by:</th>
+                            <td>{{ file.uploaded_by }}</td>
+                        </tr>
+                        <tr>
+                            <th>Size:</th>
+                            <td>{{ file.file_size|filesizeformat }}</td>
+                        </tr>
+                        <tr>
+                            <th>Upload Date:</th>
+                            <td>{{ file.uploaded_at }}</td>
+                        </tr>
+                        <tr>
+                            <th>Threshold Status:</th>
+                            <td><strong class="text-success">{{ accessed_shares }} of {{ file.threshold }}</strong> shares collected (threshold met!)</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5><i class="fas fa-shield-alt"></i> Decryption Ready</h5>
+                        </div>
+                        <div class="card-body text-center d-flex flex-column justify-content-between">
+                            <div>
+                                <p class="lead">This file has met the required threshold of {{ file.threshold }} shares and is ready to be decrypted.</p>
+                                
+                                <div class="threshold-meter mb-4">
+                                    <div class="progress" style="height: 30px;">
+                                        <div class="progress-bar bg-success" style="width: 100%">
+                                            {{ accessed_shares }} / {{ file.threshold }}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> The file will be decrypted and downloaded to your device.
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <form id="decryptForm" action="{{ url_for('threshold_file_decrypt', file_id=file.id) }}" method="post">
+                                    <button type="submit" id="decryptBtn" class="btn btn-success btn-lg">
+                                        <i class="fas fa-download"></i> Decrypt and Download
+                                    </button>
+                                </form>
+                                
+                                <a href="{{ url_for('threshold_files') }}" class="btn btn-outline-secondary mt-3">
+                                    <i class="fas fa-arrow-left"></i> Back to Shared Files
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h4><i class="fas fa-users"></i> Share Contributors</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Participant</th>
+                                <th>Share Index</th>
+                                <th>Status</th>
+                                <th>Contribution Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for share in shares %}
+                            <tr class="{% if share.has_accessed %}table-success{% endif %}">
+                                <td>{{ share.username }}</td>
+                                <td>{{ share.share_index }}</td>
+                                <td>
+                                    {% if share.has_accessed %}
+                                    <span class="badge bg-success"><i class="fas fa-check"></i> Contributed</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary"><i class="fas fa-clock"></i> Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if share.has_accessed and share.last_accessed %}
+                                    {{ share.last_accessed }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    $(document).ready(function() {
+        // Handle decrypt form submission
+        $("#decryptForm").on("submit", function() {
+            var btn = $("#decryptBtn");
+            
+            // Show processing state
+            btn.html('<i class="fas fa-spinner fa-spin"></i> Decrypting and Downloading...');
+            btn.prop('disabled', true);
+            
+            // Re-enable the button after 30 seconds (in case something goes wrong)
+            setTimeout(function() {
+                btn.html('<i class="fas fa-download"></i> Decrypt and Download');
+                btn.prop('disabled', false);
+            }, 30000);
+            
+            // No need to interrupt the normal form submission - let it happen
+            return true;
+        });
+    });
+</script>
+{% endblock %} 

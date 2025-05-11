@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Files Shared With You - Threshold Encryption{% endblock %}
+
+{% block head_extra %}
+{# Font Awesome is in base.html. Page-specific styles: #}
+<style>
+    .main-container { max-width: 1200px; padding: 1.5rem; background-color: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .header { margin-bottom: 1.5rem; text-align: center; padding-bottom: 1rem; border-bottom: 1px solid #e9ecef; }
+    .nav-tabs { margin-bottom: 1.5rem; }
+    .section-card { margin-bottom: 1.5rem; display: flex; flex-direction: column; height: 100%; }
+    .section-card .card-header { font-weight: bold; }
+    .section-card .card-body { flex-grow: 1; display: flex; flex-direction: column; }
+    .section-card .files-list { flex-grow: 1; } 
+    .file-entry-card { margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .file-meta { font-size: 0.8rem; color: #6c757d; }
+    .progress-bar-container { margin: 0.5rem 0; }
+    .empty-section-msg { text-align: center; padding: 1.5rem; color: #6c757d; border: 1px dashed #dee2e6; border-radius: .25rem; background-color: #f8f9fa; margin-top: auto; } 
+    .empty-section-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+{# Custom Flash Message Container is now in base.html #}
+
+<div class="container main-container">
+    <div class="header">
+        <h1>Files Shared With You (Threshold)</h1>
+        <p class="lead">Manage files shared with you that require multiple participants to decrypt.</p>
+    </div>
+
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{{ url_for('threshold.threshold_files') }}">My Shares</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('threshold.threshold_files_uploaded') }}">My Uploads</a>
+        </li>
+    </ul>
+
+    {% set ready_files = [] %}
+    {% set needs_attention_files = [] %}
+    {% set waiting_files = [] %}
+
+    {% if files %}
+        {% for file_item in files %}
+            {# Ensure num_pooled_shares and threshold are treated as numbers for comparison #}
+            {% set num_pooled = file_item.num_pooled_shares | int %}
+            {% set threshold_val = file_item.threshold | int %}
+
+            {% if num_pooled >= threshold_val %}
+                {% set ready_files = ready_files.append(file_item) %}
+            {% elif not file_item.current_user_has_accessed %}
+                {% set needs_attention_files = needs_attention_files.append(file_item) %}
+            {% else %} {# User has accessed, but not enough pooled shares yet (num_pooled < threshold_val) #}
+                {% set waiting_files = waiting_files.append(file_item) %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <!-- Section 1: Ready to Decrypt -->
+        <div class="col-lg-4">
+            <div class="card section-card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-lock-open me-2"></i>Ready to Decrypt</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Enough shares are pooled. You can proceed to decrypt these files.</p>
+                    <div class="files-list">
+                    {% if ready_files %}
+                        {% for file_item in ready_files %}
+                        <div class="card file-entry-card">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="fas fa-file-alt me-1"></i>{{ file_item.filename }}</h6>
+                                <p class="file-meta mb-1">Uploaded by: {{ file_item.uploaded_by }} on {{ file_item.uploaded_at.strftime('%Y-%m-%d') }}</p>
+                                <p class="file-meta">Status: {{ file_item.num_pooled_shares }}/{{ file_item.threshold }} shares pooled (Threshold Met!)</p>
+                                <a href="{{ url_for('threshold.threshold_decrypt_page', file_id=file_item.file_id) }}" class="btn btn-success btn-sm w-100 mt-2">
+                                    <i class="fas fa-download me-1"></i> Proceed to Decrypt
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-section-msg">
+                        <div class="empty-section-icon"><i class="fas fa-hourglass-end text-muted"></i></div>
+                        <p>No files are currently ready for final decryption.</p>
+                    </div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Needs Your Attention -->
+        <div class="col-lg-4">
+            <div class="card section-card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>Needs Your Attention</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Files requiring your share before the threshold can be met from the pool.</p>
+                    <div class="files-list">
+                    {% if needs_attention_files %}
+                        {% for file_item in needs_attention_files %}
+                        <div class="card file-entry-card">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="fas fa-file-alt me-1"></i>{{ file_item.filename }}</h6>
+                                <p class="file-meta mb-1">Uploaded by: {{ file_item.uploaded_by }} on {{ file_item.uploaded_at.strftime('%Y-%m-%d') }}</p>
+                                <p class="file-meta">Status: {{ file_item.num_pooled_shares }}/{{ file_item.threshold }} shares currently in pool.</p>
+                                <a href="{{ url_for('threshold.threshold_decrypt_page', file_id=file_item.file_id) }}" class="btn btn-danger btn-sm w-100 mt-2">
+                                    <i class="fas fa-key me-1"></i> Process My Share
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-section-msg">
+                        <div class="empty-section-icon"><i class="fas fa-check-circle text-success"></i></div>
+                        <p>Nothing needs your immediate attention regarding share contribution.</p>
+                    </div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Waiting for More Shares -->
+        <div class="col-lg-4">
+            <div class="card section-card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-hourglass-half me-2"></i>Waiting for Others</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">You've contributed your share; awaiting others to meet the threshold in the pool.</p>
+                    <div class="files-list">
+                     {% if waiting_files %}
+                        {% for file_item in waiting_files %}
+                        <div class="card file-entry-card">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="fas fa-file-alt me-1"></i>{{ file_item.filename }}</h6>
+                                <p class="file-meta mb-1">Uploaded by: {{ file_item.uploaded_by }} on {{ file_item.uploaded_at.strftime('%Y-%m-%d') }}</p>
+                                <p class="file-meta">Status: {{ file_item.num_pooled_shares }}/{{ file_item.threshold }} shares currently in pool.</p>
+                                <div class="progress progress-bar-container" style="height: 10px;">
+                                    <div class="progress-bar bg-warning" role="progressbar" 
+                                         style="width: '{{ (file_item.num_pooled_shares / file_item.threshold * 100) if file_item.threshold > 0 else 0 }}%';"
+                                         aria-valuenow="{{ file_item.num_pooled_shares }}" aria-valuemin="0" aria-valuemax="{{ file_item.threshold }}">
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block text-end">{{ file_item.threshold - file_item.num_pooled_shares }} more needed in pool</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-section-msg">
+                         <div class="empty-section-icon"><i class="fas fa-users text-muted"></i></div>
+                        <p>No files are currently waiting for other shares after your contribution.</p>
+                    </div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if not files %}
+    <div class="empty-state mt-4">
+        <div class="empty-state-icon"><i class="fas fa-folder-open"></i></div>
+        <h3>No Files Shared With You</h3>
+        <p>Currently, no files have been shared with you using threshold encryption.</p>
+    </div>
+    {% endif %}
+
+    <div class="mt-4 text-center">
+        <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{# Auto-hide script for flash messages is now in base.html #}
+{% endblock %}

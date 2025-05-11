@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<!-- Latest compiled and minified CSS -->
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<!-- JavaScript Bundle with Popper -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+		integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+	<meta charset="UTF-8">
+	<title>Secure File Directory</title>
+	<style>
+		.file-icon {
+			font-size: 1.2em;
+			margin-right: 8px;
+		}
+		.security-badge {
+			font-size: 0.8em;
+			margin-left: 5px;
+		}
+		.download-counter {
+			font-size: 0.9em;
+			color: #6c757d;
+		}
+		.file-name {
+			max-width: 250px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<div class="container m-3">
+			<nav class="navbar navbar-light d-flex justify-content-center align-items-center">
+				<a class="navbar-brand d-flex text-center" href="#">
+					<!-- <img src="/media/images/logo.jpg" width="100" height="100" class="d-inline-block" alt=""> -->
+					<h1 class="align-baseline">Secure File Directory</h1>
+				</a>
+			</nav>
+		</div>
+
+		<div class="container m-3">
+			<div class="card">
+				<div class="card-body">
+					<h4 class="card-title mb-4">
+						<i class="fas fa-folder-open"></i> Your Shared Files
+					</h4>
+					
+					{% if error_message %}
+					<div class="alert alert-danger">
+						<i class="fas fa-exclamation-circle"></i> {{ error_message }}
+					</div>
+					{% endif %}
+
+					{% if files and files|length > 0 %}
+					<div class="table-responsive">
+						<table class="table table-hover">
+							<thead class="table-light">
+								<tr>
+									<th><i class="fas fa-file"></i> File Name</th>
+									<th><i class="fas fa-user"></i> Shared By</th>
+									<th><i class="fas fa-calendar"></i> Date Shared</th>
+									<th><i class="fas fa-chart-bar"></i> Download Count</th>
+									<th><i class="fas fa-cog"></i> Actions</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for file in files %}
+								<tr>
+									<td>
+										<span class="file-icon">
+										{% if file.filename.endswith('.pdf') %}
+											<i class="fas fa-file-pdf text-danger"></i>
+										{% elif file.filename.endswith('.doc') or file.filename.endswith('.docx') %}
+											<i class="fas fa-file-word text-primary"></i>
+										{% elif file.filename.endswith('.xls') or file.filename.endswith('.xlsx') %}
+											<i class="fas fa-file-excel text-success"></i>
+										{% elif file.filename.endswith('.jpg') or file.filename.endswith('.jpeg') or file.filename.endswith('.png') %}
+											<i class="fas fa-file-image text-info"></i>
+										{% elif file.filename.endswith('.zip') or file.filename.endswith('.rar') %}
+											<i class="fas fa-file-archive text-warning"></i>
+										{% else %}
+											<i class="fas fa-file text-secondary"></i>
+										{% endif %}
+										</span>
+										<span class="file-name">{{ file.filename }}</span>
+										<span class="security-badge badge bg-success">
+											<i class="fas fa-lock"></i> Encrypted
+										</span>
+									</td>
+									<td>{{ file.uploaded_by }}</td>
+									<td>{{ file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+									<td>
+										<span class="download-counter">
+											<i class="fas fa-download text-muted"></i> {{ file.download_count }}
+										</span>
+									</td>
+									<td>
+										<a href="{{ url_for('file.download_file', file_id=file.id) }}" 
+										   class="btn btn-primary btn-sm">
+											<i class="fas fa-shield-alt"></i> Secure Download
+										</a>
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<div class="alert alert-info">
+						<i class="fas fa-info-circle"></i> No files have been shared with you yet.
+					</div>
+					{% endif %}
+
+					<div class="mt-4">
+						<a href="{{ url_for('file.call_page_upload') }}" class="btn btn-success">
+							<i class="fas fa-upload"></i> Upload New File
+						</a>
+						<a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-secondary">
+							<i class="fas fa-home"></i> Back to Dashboard
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- {% if msg!=''%}
+		<h3 style="color: red">{{msg}}</h3>
+	{%else%}
+		<h3>File Directory</h3>
+		{% for itr in range(length):%}
+			<li><a href="retrieve/file/{{list[itr]}}">{{list[itr]}}</a></li>
+		{% endfor%}
+	{%endif%}
+</body> -->
+
+</html>

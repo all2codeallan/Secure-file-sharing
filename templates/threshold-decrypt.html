@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Process Threshold File - {{ filename }}{% endblock %}
+
+{% block head_extra %}
+{# Font Awesome is already in base.html, specific page styles can go here if needed #}
+<style>
+    .main-container { max-width: 800px; padding: 1.5rem; background-color: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 2rem; }
+    .header { margin-bottom: 1.5rem; text-align: center; padding-bottom: 1rem; border-bottom: 1px solid #e9ecef; }
+    .file-info dt { font-weight: bold; }
+    .file-info dd { margin-left: 0; }
+    .status-section { margin-top: 1.5rem; padding: 1rem; border-radius: .25rem; }
+    .status-needed { background-color: #fff3cd; border-left: 5px solid #ffc107; }
+    .status-waiting { background-color: #e2e3e5; border-left: 5px solid #6c757d; }
+    .status-ready { background-color: #d1e7dd; border-left: 5px solid #198754; }
+</style>
+{% endblock %}
+
+{% block content %}
+{# Custom Flash Message Container is now in base.html #}
+
+<div class="container main-container">
+    <div class="header">
+        <h2>Process Threshold File</h2>
+        <h4>{{ filename }}</h4>
+    </div>
+
+    <dl class="row file-info">
+        <dt class="col-sm-4">Uploaded by:</dt><dd class="col-sm-8">{{ uploaded_by }}</dd>
+        <dt class="col-sm-4">Uploaded on:</dt><dd class="col-sm-8">{{ uploaded_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+        <dt class="col-sm-4">Threshold (k of N):</dt><dd class="col-sm-8">{{ threshold }} of {{ total_shares }}</dd>
+    </dl>
+
+    <hr>
+
+    {% if num_pooled_shares >= threshold %}
+        {# File is ready for final decryption by anyone involved #}
+        <div class="status-section status-ready">
+            <h5><i class="fas fa-lock-open me-2"></i>File Ready for Decryption</h5>
+            <p>Enough shares (<strong>{{ num_pooled_shares }}/{{ threshold }}</strong>) have been contributed to the pool. You can now proceed to assemble the shares and decrypt the file.</p>
+            
+            {% if not current_user_has_contributed %}
+            <div class="alert alert-info small mb-3">
+                <i class="fas fa-info-circle me-1"></i> This file is ready for final decryption using the currently pooled shares.
+            </div>
+            {% endif %}
+
+            {# Primary action: Assemble and Decrypt #}
+            <form method="POST" action="{{ url_for('threshold.threshold_decrypt_confirm', file_id=file_id) }}" class="mb-3">
+                <button type="submit" class="btn btn-success w-100">
+                    <i class="fas fa-download me-1"></i> Assemble Shares & Decrypt File
+                </button>
+            </form>
+
+            {% if not current_user_has_contributed %}
+            {# Secondary, optional action: Contribute own share #}
+            <div class="mt-4 p-3 border rounded bg-light">
+                <p class="small mb-2"><strong>Optional: Contribute Your Own Share</strong><br>
+                You have not contributed your personal share yet. While not strictly required for decryption now (as the threshold is met by other pooled shares), you can still process and contribute your share to the pool if you wish.</p>
+                <form method="POST" action="{{ url_for('threshold.threshold_decrypt_page', file_id=file_id) }}">
+                    <div class="mb-2">
+                        <label for="user_password_optional" class="form-label form-label-sm">Your Account Password:</label>
+                        <input type="password" class="form-control form-control-sm" id="user_password_optional" name="user_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-cogs me-1"></i> Process and Add My Share to Pool
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    {% else %}
+        {# File is NOT yet ready for final decryption - check if current user needs to contribute #}
+        {% if not current_user_has_contributed %}
+            <div class="status-section status-needed">
+                <h5><i class="fas fa-key me-2"></i>Contribute Your Share</h5>
+                <p>To participate in decrypting this file, you need to process and contribute your encrypted share. This requires your account password to access and use your private key for decrypting your share.</p>
+                <p>Status: <strong>{{ num_pooled_shares }}/{{ threshold }}</strong> shares currently in pool. {{ threshold - num_pooled_shares }} more needed.</p>
+                <div class="progress progress-bar-container mb-3" style="height: 10px;">
+                    <div class="progress-bar bg-warning" role="progressbar" 
+                         style="width: '{{ (num_pooled_shares / threshold * 100) if threshold > 0 else 0 }}%';"
+                         aria-valuenow="{{ num_pooled_shares }}" aria-valuemin="0" aria-valuemax="{{ threshold }}">
+                    </div>
+                </div>
+                <form method="POST" action="{{ url_for('threshold.threshold_decrypt_page', file_id=file_id) }}">
+                    <div class="mb-3">
+                        <label for="user_password" class="form-label">Your Account Password:</label>
+                        <input type="password" class="form-control" id="user_password" name="user_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="fas fa-cogs me-1"></i> Process and Contribute My Share
+                    </button>
+                </form>
+                <p class="small mt-2 text-muted">Your password is used to decrypt your private key, which in turn decrypts your specific share of the file's encryption key. The decrypted share is then temporarily pooled on the server.</p>
+            </div>
+        {% else %}
+            {# User has contributed, but still waiting for others #}
+            <div class="alert alert-info">
+                <i class="fas fa-check-circle me-1"></i> Your share has been contributed to the pool.
+            </div>
+            <div class="status-section status-waiting">
+                <h5><i class="fas fa-hourglass-half me-2"></i>Waiting for More Shares</h5>
+                <p>Currently, <strong>{{ num_pooled_shares }}/{{ threshold }}</strong> shares are available in the server's temporary pool for this file.</p>
+                <div class="progress progress-bar-container" style="height: 20px;">
+                    <div class="progress-bar bg-warning" role="progressbar" 
+                         style="width: '{{ (num_pooled_shares / threshold * 100) if threshold > 0 else 0 }}%';"
+                         aria-valuenow="{{ num_pooled_shares }}" aria-valuemin="0" aria-valuemax="{{ threshold }}">
+                         {{ num_pooled_shares }}/{{ threshold }}
+                    </div>
+                </div>
+                <p class="text-warning fw-bold">Waiting for {{ threshold - num_pooled_shares }} more share(s) to be contributed by other recipients.</p>
+                <p class="small text-muted">You can check back later by refreshing the <a href="{{ url_for('threshold.threshold_files') }}">Files Shared With Me</a> page for updates.</p>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <div class="mt-4 text-center">
+        <a href="{{ url_for('threshold.threshold_files') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Back to Shared Files</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{# Auto-hide script for flash messages is now in base.html #}
+{% endblock %}
